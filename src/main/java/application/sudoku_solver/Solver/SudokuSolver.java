@@ -32,6 +32,7 @@ public class SudokuSolver extends Thread {
 
     @Override
     public void run() {
+        System.out.println("Thread " + threadID + " stared!");
         while (isLiving) {
             boolean isThereNewData = false;
             boolean anyCandidateEliminated = false;
@@ -56,6 +57,7 @@ public class SudokuSolver extends Thread {
                 Keep track of whether any candidate could be eliminated or not.
             */
             if (!isThereNewData) {
+                System.out.println("Thread " + threadID + " tries to eliminate candidates!");
                 for (int i = 0; i < regions.size(); i++) {
                     for (int j = 0; j < 9; j++)
                         regions.get(i).SudokuCellChanged(j, cellData.get(cellsOfRegions.get(i).get(j)));
@@ -80,6 +82,7 @@ public class SudokuSolver extends Thread {
                 while (shouldStopDueToContradiction) {
                     synchronized (lock) {
                         try {
+                            System.out.println("Thread " + threadID + " will sleep (contradiction)!");
                             lock.wait();
                         } catch (InterruptedException e) {
                             System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
@@ -88,13 +91,17 @@ public class SudokuSolver extends Thread {
                         }
                     }
                 }
+                System.out.println("Thread " + threadID + " wake up (contradiction)!");
             }
 
             else if (!isThereNewData && !anyCandidateEliminated) {
+                System.out.println("Thread " + threadID + " should sleep because there is no new candidate!");
                 if (puzzle.shouldThreadStop(threadID)) {
                     synchronized (lock) {
                         try {
+                            System.out.println("Thread " + threadID + " is sleeping (no candidate elimination)!");
                             lock.wait();
+                            System.out.println("Thread " + threadID + " wake up (no candidate elimination)!");
                         } catch (InterruptedException e) {
                             System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
                             isLiving = false;
@@ -104,9 +111,13 @@ public class SudokuSolver extends Thread {
                 }
             }
 
-            if (anyCandidateEliminated)
+            if (anyCandidateEliminated) {
+                System.out.println("Thread " + threadID + " eliminated something and signaled all threads to work!");
                 puzzle.continueWork();
+            }
         }
+
+        System.out.println("Thread " + threadID + " quitted!");
     }
 
     public void assignData(RegionManager regions) {

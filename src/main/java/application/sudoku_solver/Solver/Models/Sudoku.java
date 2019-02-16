@@ -20,7 +20,6 @@ public class Sudoku {
     private final Object queueMutex = new Object();
     private final int thrAmount;
     private int workingThread;
-    private final boolean[] shouldThreadRun;
     private final Cell[] cells;
     private final RegionManager[] regions;
     private final List<SudokuSolver> solvers;
@@ -38,12 +37,10 @@ public class Sudoku {
 
         thrAmount = threadAmount;
         workingThread = threadAmount;
-        shouldThreadRun = new boolean[threadAmount];
         foundContradiction = false;
 
         for (int i = 0; i < threadAmount; i++) {
             solvers.add(new SudokuSolver(i, this));
-            shouldThreadRun[i] = false;
         }
 
         for (int i = 0; i < 81; i += 9)
@@ -103,69 +100,65 @@ public class Sudoku {
 
         boolean result;
         synchronized (myMutex) {
-            if (shouldThreadRun[threadID] && !foundContradiction) {
-                //shouldThreadRun[threadID] = false;
-                shouldThreadRun[threadID] = true;
-                result = false;
-            }
-            else {
-                workingThread--;
-                if (workingThread == 0) {
-                    if (foundContradiction) {
-                        if (attempts.empty()) {
-                            for (int i = 0; i < thrAmount; i++) {
-                                solvers.get(i).killThread();
-                                solvers.get(i).signalToWork();
-                            }
-                        }
-                        else {
-                            foundContradiction = false;
-                            Action action = new Action(attempts.peek().changedCell, 0, EliminationEvent.ROLLBACK, attempts.peek().pickedValue);
-                            for (int i = 0; i < 81; i++) {
-                                cells[i].assign(attempts.peek().values[i]);
-                                action.values[i] = attempts.peek().values[i];
-                            }
-                            cells[attempts.peek().changedCell].remove(attempts.peek().pickedValue);
-                            addToQueue(action);
-                            attempts.pop();
-                            workingThread = thrAmount;
-                            for (int i = 0; i < thrAmount; i++) {
-                                shouldThreadRun[i] = true;
-                                solvers.get(i).signalToWork();
-                            }
+
+            workingThread--;
+            if (workingThread == 0) {
+                System.out.println("No working thread!");
+                if (foundContradiction) {
+                    if (attempts.empty()) {
+                        for (int i = 0; i < thrAmount; i++) {
+                            solvers.get(i).killThread();
+                            solvers.get(i).signalToWork();
                         }
                     }
                     else {
-                        int isNotFinished = isThereMoreThanOneCandidate();
-                        //It is solved...
-                        if (isNotFinished == -1) {
-                            for (int i = 0; i < thrAmount; i++) {
-                                solvers.get(i).killThread();
-                                solvers.get(i).signalToWork();
-                            }
+                        foundContradiction = false;
+                        Action action = new Action(attempts.peek().changedCell, 0, EliminationEvent.ROLLBACK, attempts.peek().pickedValue);
+                        for (int i = 0; i < 81; i++) {
+                            cells[i].assign(attempts.peek().values[i]);
+                            action.values[i] = attempts.peek().values[i];
                         }
-                        //Guess is needed
-                        else {
-                            SudokuBackup backup = new SudokuBackup();
-                            for (int i = 0; i < 81; i++)
-                                backup.values[i] = cells[i].getCandidates();
-                            backup.pickedValue = cells[isNotFinished].pickCandidate();
-                            backup.changedCell = isNotFinished;
-                            Action action = new Action(isNotFinished, 0, EliminationEvent.TRYING, backup.pickedValue);
-                            addToQueue(action);
-                            attempts.push(backup);
-                            workingThread = thrAmount;
-                            for (int i = 0; i < thrAmount; i++) {
-                                shouldThreadRun[i] = true;
-                                solvers.get(i).signalToWork();
-                            }
+                        cells[attempts.peek().changedCell].remove(attempts.peek().pickedValue);
+                        addToQueue(action);
+                        attempts.pop();
+                        workingThread = thrAmount;
+                        for (int i = 0; i < thrAmount; i++) {
+                            solvers.get(i).signalToWork();
                         }
                     }
-                    result = false;
                 }
                 else {
-                    result = true;
+                    int isNotFinished = isThereMoreThanOneCandidate();
+                    //It is solved...
+                    if (isNotFinished == -1) {
+                        System.out.println("Puzzle is solved!");
+                        for (int i = 0; i < thrAmount; i++) {
+                            solvers.get(i).killThread();
+                            solvers.get(i).signalToWork();
+                        }
+                    }
+                    //Guess is needed
+                    else {
+                        System.out.println("Will make a guess!");
+
+                        SudokuBackup backup = new SudokuBackup();
+                        for (int i = 0; i < 81; i++)
+                            backup.values[i] = cells[i].getCandidates();
+                        backup.pickedValue = cells[isNotFinished].pickCandidate();
+                        backup.changedCell = isNotFinished;
+                        Action action = new Action(isNotFinished, 0, EliminationEvent.TRYING, backup.pickedValue);
+                        addToQueue(action);
+                        attempts.push(backup);
+                        workingThread = thrAmount;
+                        for (int i = 0; i < thrAmount; i++) {
+                            solvers.get(i).signalToWork();
+                        }
+                    }
                 }
+                result = false;
+            }
+            else {
+                result = true;
             }
         }
         return result;
@@ -176,7 +169,6 @@ public class Sudoku {
             if (!foundContradiction) {
                 workingThread = thrAmount;
                 for (int i = 0; i < thrAmount; i++) {
-                    shouldThreadRun[i] = true;
                     solvers.get(i).signalToWork();
                 }
             }
