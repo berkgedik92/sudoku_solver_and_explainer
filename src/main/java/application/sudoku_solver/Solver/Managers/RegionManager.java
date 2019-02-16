@@ -27,22 +27,9 @@ public abstract class RegionManager {
     // to prepare a report for user.
     final Sudoku mySudoku;
 
-    RegionManager(Cell cell1, Cell cell2, Cell cell3,
-                  Cell cell4, Cell cell5, Cell cell6,
-                  Cell cell7, Cell cell8, Cell cell9,
-                  int regionID, Sudoku puzzle) {
+    RegionManager(Cell[] cells, int regionID, Sudoku puzzle) {
 
-        this.cells = new Cell[9];
-
-        cells[0] = cell1;
-        cells[1] = cell2;
-        cells[2] = cell3;
-        cells[3] = cell4;
-        cells[4] = cell5;
-        cells[5] = cell6;
-        cells[6] = cell7;
-        cells[7] = cell8;
-        cells[8] = cell9;
+        this.cells = cells;
 
         this.regionID = regionID;
         this.mySudoku = puzzle;

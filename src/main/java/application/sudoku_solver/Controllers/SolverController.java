@@ -11,14 +11,17 @@ class SolverController {
     @CrossOrigin
     @PostMapping(value = "/solve")
     public Report solve(@RequestBody String data) {
-        SudokuHandler handler = new SudokuHandler(data);
-        handler.run();
+
+        SudokuHandler sudokuHandler = new SudokuHandler(data);
+
         try {
-            handler.join();
+            sudokuHandler.run();
+            sudokuHandler.join();
         } catch (InterruptedException e) {
+            System.err.println("ERROR ON CONTROLLER!");
             e.printStackTrace();
         }
 
-        return handler.report;
+        return sudokuHandler.getReport();
     }
 }

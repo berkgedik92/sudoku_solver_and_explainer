@@ -23,7 +23,6 @@ public class Sudoku {
     private final Cell[] cells;
     private final RegionManager[] regions;
     private final List<SudokuSolver> solvers;
-    private String intro = "";
 
     public Sudoku(int threadAmount) {
         this.cells = new Cell[81];
@@ -44,27 +43,23 @@ public class Sudoku {
         }
 
         for (int i = 0; i < 81; i += 9)
-            regions[i / 9] = new RowManager(cells[i], cells[i + 1], cells[i + 2], cells[i + 3],
-                    cells[i + 4], cells[i + 5], cells[i + 6], cells[i + 7], cells[i + 8],i / 9,this);
+            regions[i / 9] = new RowManager(new Cell[] {cells[i], cells[i + 1], cells[i + 2], cells[i + 3],
+                    cells[i + 4], cells[i + 5], cells[i + 6], cells[i + 7], cells[i + 8]}, i / 9,this);
 
         for (int i = 0; i < 9; i++)
-            regions[i + 9] = new ColumnManager(cells[i], cells[i + 9], cells[i + 18], cells[i + 27],
-                    cells[i + 36], cells[i + 45], cells[i + 54], cells[i + 63], cells[i + 72],i + 9,this);
+            regions[i + 9] = new ColumnManager(new Cell[] {cells[i], cells[i + 9], cells[i + 18], cells[i + 27],
+                    cells[i + 36], cells[i + 45], cells[i + 54], cells[i + 63], cells[i + 72]}, i + 9,this);
 
         for (int i = 0; i < 9; i++) {
             int r = (i / 3) * 3;
             int c = (i % 3) * 3;
             int ind = r * 9 + c;
-            regions[i + 18] = new BoxManager(cells[ind], cells[ind + 1], cells[ind + 2], cells[ind + 9],
-                    cells[ind + 10], cells[ind + 11], cells[ind + 18], cells[ind + 19], cells[ind + 20],i + 18,this);
+            regions[i + 18] = new BoxManager(new Cell[] {cells[ind], cells[ind + 1], cells[ind + 2], cells[ind + 9],
+                    cells[ind + 10], cells[ind + 11], cells[ind + 18], cells[ind + 19], cells[ind + 20]}, i + 18,this);
         }
 
         for (int j = 0; j < 27; j++)
             solvers.get(j % threadAmount).assignData(regions[j]);
-    }
-
-    public void giveLineNow(String s) {
-        intro += s;
     }
 
     public void setNumberForCell(int row, int col, int number) {
@@ -226,7 +221,6 @@ public class Sudoku {
 
         Report report = new Report();
 
-        report.intro = intro;
         report.timeElapsed = 0L;
 
         boolean contradiction = false;

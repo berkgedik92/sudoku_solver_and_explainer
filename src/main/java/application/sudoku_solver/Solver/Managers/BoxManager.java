@@ -16,12 +16,9 @@ public class BoxManager extends RegionManager {
     private final int secondColumnIndex;
     private final int thirdColumnIndex;
 
-    public BoxManager(Cell cell1, Cell cell2, Cell cell3,
-                      Cell cell4, Cell cell5, Cell cell6,
-                      Cell cell7, Cell cell8, Cell cell9,
-                      int regionID, Sudoku puzzle) {
+    public BoxManager(Cell[] cells, int regionID, Sudoku puzzle) {
 
-        super(cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8, cell9, regionID, puzzle);
+        super(cells, regionID, puzzle);
 
         this.boxIndex = regionID - 18;
         this.firstRowIndex = (boxIndex / 3) * 3;
