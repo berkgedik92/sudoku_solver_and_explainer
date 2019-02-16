@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Sudoku Solver</title>
+	<meta name="description" content="Sudoku Solver">
+ 	<meta name="author" content="Berk Gedik">
+	<link rel="stylesheet" href="reset.css">
+	<link rel="stylesheet" href="sudoku.css">
+	<meta charset="UTF-8">
+</head>
+
+<body>
+<div id="container" class="initial">
+
+</div>
+<div id="button_container">
+	<div id="explain"></div>
+	<div style="text-align: center; margin-top:10px;">
+		<input id="solve_button" type="button" class="button" value="SOLVE" onclick="solve();"/>
+		<input id="clear_button" type="button" class="button" value="CLEAR" onclick="reset();"/>
+		<input id="continue_button" type="button" class="button" value="CONTINUE" onclick="Next();" style="display:none;"/>
+	</div>
+</div>
+</body>
+<script src="jquery.js"></script>
+<script src="sudoku.js"></script>
+<script src="create.js"></script>
+</html>
