@@ -18,7 +18,7 @@ public class Sudoku {
     private final Queue<Action> actions;
     private final Object myMutex = new Object();
     private final Object queueMutex = new Object();
-    private final int thrAmount;
+    private final int threadAmount;
     private int workingThread;
     private final Cell[] cells;
     private final RegionManager[] regions;
@@ -35,7 +35,7 @@ public class Sudoku {
         for (int i = 0; i < 81; i++)
             cells[i] = new Cell(i);
 
-        thrAmount = threadAmount;
+        this.threadAmount = threadAmount;
         workingThread = threadAmount;
         foundContradiction = false;
 
@@ -73,10 +73,10 @@ public class Sudoku {
     }
 
     public void solve() {
-        for (int i = 0; i < thrAmount; i++)
+        for (int i = 0; i < threadAmount; i++)
             solvers.get(i).start();
 
-        for (int i = 0; i < thrAmount; i++) {
+        for (int i = 0; i < threadAmount; i++) {
             try {
                 solvers.get(i).join();
             } catch (InterruptedException e) {
@@ -96,79 +96,120 @@ public class Sudoku {
         return b.toString();
     }
 
-    public boolean shouldThreadStop(int threadID) {
+    /*
+        This is the function that a solver calls to attempt to stop. A solver might want to stop for two
+        reasons: 1) It could neither get a new date nor eliminate any candidate. 2) There is a contradiction
 
-        boolean result;
+        For case (1), the thread needs to sleep and wait until a new data comes (i.e another solver eliminates
+        some candidates from a cell which this solver is also responsible from)
+
+        For case (2), all threads should sleep and then then the puzzle must be restored to the latest
+        state where there is no contradiction. Then all solvers will wake up and try to solve the problem.
+
+        For any case, if all threads are stopped and this is the last thread, it will not be stopped.
+     */
+    public boolean threadStopAttempt() {
+
+        // Assume that it is not the last thread (if it is the last thread we will not stop it)
+        boolean shouldThreadBeStopped = true;
+
         synchronized (myMutex) {
 
             workingThread--;
             if (workingThread == 0) {
-                System.out.println("No working thread!");
+                System.out.println("All threads except one are stopped. Now we will check how to proceed...");
+
+                /*
+                    Case (1) Contradiction: If there is a contradiction, check if there is any non-contradicting state
+                    in the stack. If so restore the state and wake up all solvers. Otherwise we conclude that the puzzle
+                    is not solvable. In this case, just kill the threads
+                 */
                 if (foundContradiction) {
+
+                    // If there is no non-contradicting state in the stack, kill the threads...
                     if (attempts.empty()) {
-                        for (int i = 0; i < thrAmount; i++) {
+                        for (int i = 0; i < threadAmount; i++)
                             solvers.get(i).killThread();
-                            solvers.get(i).signalToWork();
-                        }
                     }
+
+                    // If there is a state, return to that state and wake up all threads...
                     else {
+                        // Restore
                         foundContradiction = false;
                         Action action = new Action(attempts.peek().changedCell, 0, EliminationEvent.ROLLBACK, attempts.peek().pickedValue);
                         for (int i = 0; i < 81; i++) {
                             cells[i].assign(attempts.peek().values[i]);
                             action.values[i] = attempts.peek().values[i];
                         }
+
+                        /*
+                            Remember what candidate we picked for the cell when we made the random guess. Now as we
+                            know that this candidate led us into a contradiction, we conclude that this cannot be a
+                            candidate so we will remove this value from the candidates list of the cell
+                        */
+
                         cells[attempts.peek().changedCell].remove(attempts.peek().pickedValue);
                         addToQueue(action);
                         attempts.pop();
-                        workingThread = thrAmount;
-                        for (int i = 0; i < thrAmount; i++) {
+
+                        // Signal all threads to run again
+                        workingThread = threadAmount;
+                        for (int i = 0; i < threadAmount; i++)
                             solvers.get(i).signalToWork();
-                        }
                     }
                 }
+                /*
+                    Case (2) There is no thread which could eliminate any candidate.
+
+                    This is possible only in two cases:
+                        1) The puzzle is solved (so there is no more candidates to eliminate)
+                        2) The solvers cannot eliminate anything using the elimination logic we have implemented
+
+                        For case (1) we should kill all the threads
+                        For case (2) we must save the current state into the stack, make a guess (pick a candidate
+                        randomly for a cell)
+                 */
                 else {
                     int isNotFinished = isThereMoreThanOneCandidate();
-                    //It is solved...
+
+                    // Case (1) : The puzzle is solved...
                     if (isNotFinished == -1) {
                         System.out.println("Puzzle is solved!");
-                        for (int i = 0; i < thrAmount; i++) {
+                        for (int i = 0; i < threadAmount; i++)
                             solvers.get(i).killThread();
-                            solvers.get(i).signalToWork();
-                        }
                     }
-                    //Guess is needed
+                    // Case (2) : We will make a guess
                     else {
-                        System.out.println("Will make a guess!");
+                        System.out.println("We have to make a guess!");
 
                         SudokuBackup backup = new SudokuBackup();
                         for (int i = 0; i < 81; i++)
                             backup.values[i] = cells[i].getCandidates();
+
                         backup.pickedValue = cells[isNotFinished].pickCandidate();
                         backup.changedCell = isNotFinished;
                         Action action = new Action(isNotFinished, 0, EliminationEvent.TRYING, backup.pickedValue);
                         addToQueue(action);
                         attempts.push(backup);
-                        workingThread = thrAmount;
-                        for (int i = 0; i < thrAmount; i++) {
+
+                        // Run the threads again
+                        workingThread = threadAmount;
+                        for (int i = 0; i < threadAmount; i++) {
                             solvers.get(i).signalToWork();
                         }
                     }
                 }
-                result = false;
-            }
-            else {
-                result = true;
+                shouldThreadBeStopped = false;
             }
         }
-        return result;
+        return shouldThreadBeStopped;
     }
 
     public void continueWork() {
         synchronized (myMutex) {
             if (!foundContradiction) {
-                workingThread = thrAmount;
-                for (int i = 0; i < thrAmount; i++) {
+                workingThread = threadAmount;
+                for (int i = 0; i < threadAmount; i++) {
                     solvers.get(i).signalToWork();
                 }
             }
@@ -213,7 +254,7 @@ public class Sudoku {
 
         foundContradiction = true;
 
-        for (int i = 0;i < thrAmount; i++)
+        for (int i = 0; i < threadAmount; i++)
             solvers.get(i).signalToStopDueToContradiction();
     }
 

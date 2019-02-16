@@ -78,7 +78,7 @@ public class SudokuSolver extends Thread {
                 we must stop working and after all solvers stop working we need to rollback to the latest
                 non-contradicting state. Only after that solvers can start working again.
             */
-            if (shouldStopDueToContradiction && puzzle.shouldThreadStop(threadID)) {
+            if (shouldStopDueToContradiction && puzzle.threadStopAttempt()) {
                 while (shouldStopDueToContradiction) {
                     synchronized (lock) {
                         try {
@@ -94,19 +94,16 @@ public class SudokuSolver extends Thread {
                 System.out.println("Thread " + threadID + " wake up (contradiction)!");
             }
 
-            else if (!isThereNewData && !anyCandidateEliminated) {
-                System.out.println("Thread " + threadID + " should sleep because there is no new candidate!");
-                if (puzzle.shouldThreadStop(threadID)) {
-                    synchronized (lock) {
-                        try {
-                            System.out.println("Thread " + threadID + " is sleeping (no candidate elimination)!");
-                            lock.wait();
-                            System.out.println("Thread " + threadID + " wake up (no candidate elimination)!");
-                        } catch (InterruptedException e) {
-                            System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
-                            isLiving = false;
-                            break;
-                        }
+            else if (!isThereNewData && !anyCandidateEliminated && puzzle.threadStopAttempt()) {
+                synchronized (lock) {
+                    try {
+                        System.out.println("Thread " + threadID + " is sleeping (no candidate elimination)!");
+                        lock.wait();
+                        System.out.println("Thread " + threadID + " wake up (no candidate elimination)!");
+                    } catch (InterruptedException e) {
+                        System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
+                        isLiving = false;
+                        break;
                     }
                 }
             }
@@ -156,5 +153,9 @@ public class SudokuSolver extends Thread {
 
     public void killThread() {
         isLiving = false;
+        shouldStopDueToContradiction = false;
+        synchronized (lock) {
+            lock.notify();
+        }
     }
 }
