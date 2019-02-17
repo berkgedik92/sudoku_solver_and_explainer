@@ -6,6 +6,9 @@ import application.sudoku_solver.Solver.Models.Sudoku;
 public class SudokuHandler extends Thread {
 
     private static final int THREAD_AMOUNT = 15;
+    public static final boolean LOG_LOCK_ACQUIREMENTS = true;
+    public static final boolean LOG_THREAD_ACTIONS = true;
+
     private final String data;
     private Report report;
 

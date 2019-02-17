@@ -12,7 +12,7 @@ public class SudokuSolver extends Thread {
     private boolean isLiving;
     private final Object lock = new Object();
     private final int threadID;
-
+    private boolean isThereNewData = false;
     private final Sudoku puzzle;
     private final List<RegionManager> regions;
     private final List<Cell> cells;
@@ -32,9 +32,9 @@ public class SudokuSolver extends Thread {
 
     @Override
     public void run() {
-        System.out.println("Thread " + threadID + " stared!");
+        //System.out.println("Thread " + threadID + " stared!");
         while (isLiving) {
-            boolean isThereNewData = false;
+            isThereNewData = false;
             boolean anyCandidateEliminated = false;
 
             /*
@@ -43,6 +43,9 @@ public class SudokuSolver extends Thread {
                 no new data comes. When new data stops coming then the solver can try to eliminate further
                 candidates at cells that the solver is responsible from.
              */
+
+            if (SudokuHandler.LOG_THREAD_ACTIONS)
+                System.out.println("ACTION\tThread " + threadID + "\tFetching latest candidate lists for its cells...");
 
             for (int i = 0; i < cells.size(); i++) {
                 int candidates = cells.get(i).getCandidates();
@@ -56,21 +59,44 @@ public class SudokuSolver extends Thread {
                 If there is no new data, try to eliminate some candidates by using elimination logic.
                 Keep track of whether any candidate could be eliminated or not.
             */
-            if (!isThereNewData) {
-                System.out.println("Thread " + threadID + " tries to eliminate candidates!");
+            if (isLiving && !isThereNewData) {
+
                 for (int i = 0; i < regions.size(); i++) {
                     for (int j = 0; j < 9; j++)
                         regions.get(i).SudokuCellChanged(j, cellData.get(cellsOfRegions.get(i).get(j)));
-                    anyCandidateEliminated = regions.get(i).NakedElimination() || anyCandidateEliminated;
+                    anyCandidateEliminated = regions.get(i).NakedElimination(threadID) || anyCandidateEliminated;
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS) {
+                        if (anyCandidateEliminated)
+                            System.out.println("ACTION\tThread " + threadID + "\tEliminated some candidates by NakedElimination method");
+                        else
+                            System.out.println("ACTION\tThread " + threadID + "\tFailed to eliminated some candidates by NakedElimination method");
+                    }
                 }
 
-                if (!anyCandidateEliminated)
+                if (!anyCandidateEliminated) {
                     for (RegionManager region : regions)
-                        anyCandidateEliminated = region.specialAction() || anyCandidateEliminated;
+                        anyCandidateEliminated = region.specialAction(threadID) || anyCandidateEliminated;
 
-                if (!anyCandidateEliminated)
+                    if (SudokuHandler.LOG_THREAD_ACTIONS) {
+                        if (anyCandidateEliminated)
+                            System.out.println("ACTION\tThread " + threadID + "\tEliminated some candidates by specialAction method");
+                        else
+                            System.out.println("ACTION\tThread " + threadID + "\tFailed to eliminated some candidates by specialAction method");
+                    }
+                }
+
+                if (!anyCandidateEliminated) {
                     for (RegionManager region : regions)
-                        anyCandidateEliminated = region.HiddenElimination() || anyCandidateEliminated;
+                        anyCandidateEliminated = region.HiddenElimination(threadID) || anyCandidateEliminated;
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS) {
+                        if (anyCandidateEliminated)
+                            System.out.println("ACTION\tThread " + threadID + "\tEliminated some candidates by HiddenElimination method");
+                        else
+                            System.out.println("ACTION\tThread " + threadID + "\tFailed to eliminated some candidates by HiddenElimination method");
+                    }
+                }
             }
 
             /*
@@ -78,11 +104,21 @@ public class SudokuSolver extends Thread {
                 we must stop working and after all solvers stop working we need to rollback to the latest
                 non-contradicting state. Only after that solvers can start working again.
             */
-            if (shouldStopDueToContradiction && puzzle.threadStopAttempt()) {
-                while (shouldStopDueToContradiction) {
-                    synchronized (lock) {
+
+            if (isLiving && shouldStopDueToContradiction && puzzle.threadStopAttempt(threadID)) {
+
+                if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                    System.out.println("LOCK\tThread " + threadID + "\tattempted to take lock of SudokuSolver" + threadID + "Lock (for Contradiction)");
+
+                synchronized (lock) {
+                    if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                        System.out.println("LOCK\tThread " + threadID + "\ttook lock of SudokuSolver" + threadID + "Lock (for Contradiction)");
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tWill sleep until contradiction is fixed...");
+
+                    while (shouldStopDueToContradiction) {
                         try {
-                            System.out.println("Thread " + threadID + " will sleep (contradiction)!");
                             lock.wait();
                         } catch (InterruptedException e) {
                             System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
@@ -90,31 +126,57 @@ public class SudokuSolver extends Thread {
                             break;
                         }
                     }
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tWoke up (slept due to contradiction before)");
                 }
-                System.out.println("Thread " + threadID + " wake up (contradiction)!");
             }
 
-            else if (!isThereNewData && !anyCandidateEliminated && puzzle.threadStopAttempt()) {
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\treleased lock of SudokuSolver" + threadID + "Lock (for Contradiction)");
+
+            if (isLiving && !isThereNewData && !anyCandidateEliminated && puzzle.threadStopAttempt(threadID)) {
+
+                if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                    System.out.println("LOCK\tThread " + threadID + "\tattempted to take lock of SudokuSolver" + threadID + "Lock (for Elimination)");
+
                 synchronized (lock) {
-                    try {
-                        System.out.println("Thread " + threadID + " is sleeping (no candidate elimination)!");
-                        lock.wait();
-                        System.out.println("Thread " + threadID + " wake up (no candidate elimination)!");
-                    } catch (InterruptedException e) {
-                        System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
-                        isLiving = false;
-                        break;
+
+                    if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                        System.out.println("LOCK\tThread " + threadID + "\ttook lock of SudokuSolver" + threadID + "Lock (for Elimination)");
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tWill sleep until new candidate list comes");
+
+                    while (!isThereNewData) {
+                        try {
+                            lock.wait();
+                        } catch (InterruptedException e) {
+                            System.out.println("Thread " + threadID + " is interrupted, thread will stop...");
+                            isLiving = false;
+                            break;
+                        }
                     }
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tWoke up (slept to wait for new data before)");
                 }
             }
+
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\treleased lock of SudokuSolver" + threadID + "Lock (for Elimination)");
 
             if (anyCandidateEliminated) {
-                System.out.println("Thread " + threadID + " eliminated something and signaled all threads to work!");
-                puzzle.continueWork();
+
+                if (SudokuHandler.LOG_THREAD_ACTIONS)
+                    System.out.println("ACTION\tThread " + threadID + "\tEliminated some candidates. It will wake up sleeping threads now");
+
+                puzzle.resumeAllThreads(threadID);
             }
         }
 
-        System.out.println("Thread " + threadID + " quitted!");
+        if (SudokuHandler.LOG_THREAD_ACTIONS)
+            System.out.println("ACTION\tThread " + threadID + "\tQuit");
     }
 
     public void assignData(RegionManager regions) {
@@ -140,22 +202,30 @@ public class SudokuSolver extends Thread {
         cellsOfRegions.add(temp);
     }
 
-    public void signalToWork() {
+    public void signalToWork(int threadID) {
         shouldStopDueToContradiction = false;
+        isThereNewData = true;
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\tattempted to take lock of SudokuSolver" + this.threadID + "Lock (for signalToWork)");
+
         synchronized (lock) {
+
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\ttook lock of SudokuSolver" + this.threadID + "Lock (for signalToWork)");
+
             lock.notify();
         }
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\treleased lock of SudokuSolver" + this.threadID + "Lock (for signalToWork)");
     }
 
     public void signalToStopDueToContradiction() {
         shouldStopDueToContradiction = true;
     }
 
-    public void killThread() {
+    public void setKillFlag() {
         isLiving = false;
-        shouldStopDueToContradiction = false;
-        synchronized (lock) {
-            lock.notify();
-        }
     }
 }

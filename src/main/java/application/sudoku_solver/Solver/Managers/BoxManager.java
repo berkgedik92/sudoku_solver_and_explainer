@@ -31,7 +31,7 @@ public class BoxManager extends RegionManager {
 
     @SuppressWarnings("ConstantConditions")
     @Override
-    public boolean specialAction() {
+    public boolean specialAction(int threadID) {
         boolean change = false;
 
         /*
@@ -61,33 +61,33 @@ public class BoxManager extends RegionManager {
                 this candidate cannot appear in other cells of that row.
             */
             if (candidatesForRows[i][0] >= 2 && candidatesForRows[i][1] == 0 && candidatesForRows[i][2] == 0)
-                change = specialElimination(firstRowIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(firstRowIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidatesForRows[i][1] >= 2 && candidatesForRows[i][0] == 0 && candidatesForRows[i][2] == 0)
-                change = specialElimination(secondRowIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(secondRowIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidatesForRows[i][2] >= 2 && candidatesForRows[i][0] == 0 && candidatesForRows[i][1] == 0)
-                change = specialElimination(thirdRowIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(thirdRowIndex, getEliminatedCandidates(i), threadID) || change;
 
             /*
                 Find a candidate which appears only in a certain column. If this can be done, we will conclude that
                 this candidate cannot appear in other cells of that column.
             */
             if (candidatesForColumns[i][0] >= 2 && candidatesForColumns[i][1] == 0 && candidatesForColumns[i][2] == 0)
-                change = specialElimination(firstColumnIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(firstColumnIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidatesForColumns[i][1] >= 2 && candidatesForColumns[i][0] == 0 && candidatesForColumns[i][2] == 0)
-                change = specialElimination(secondColumnIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(secondColumnIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidatesForColumns[i][2] >= 2 && candidatesForColumns[i][0] == 0 && candidatesForColumns[i][1] == 0)
-                change = specialElimination(thirdColumnIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(thirdColumnIndex, getEliminatedCandidates(i), threadID) || change;
         }
 
         return change;
     }
 
     @Override
-    public boolean specialElimination(int targetID, int eliminatedCandidates) {
+    public boolean specialElimination(int targetID, int eliminatedCandidates, int threadID) {
         //At the end this will be bigger than 0 if this eliminated attempt could really eliminate a candidate in a cell
         int change = 0;
 
@@ -109,13 +109,13 @@ public class BoxManager extends RegionManager {
                 action.greenCells[i] = eliminatedCandidates;
 
         for (int i = 0; i < 6; i++) {
-            action.redCells[targetCells[i]] = otherCells[targetCells[i]].remove(eliminatedCandidates);
+            action.redCells[targetCells[i]] = otherCells[targetCells[i]].remove(eliminatedCandidates, threadID);
             change += action.redCells[targetCells[i]];
         }
 
         //If we could eliminate some candidates, then add this action to our action list.
         if (change > 0)
-            mySudoku.addToQueue(action);
+            mySudoku.addToQueue(action, threadID);
 
         return (change > 0);
     }

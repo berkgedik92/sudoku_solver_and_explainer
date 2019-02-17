@@ -24,7 +24,7 @@ public class ColumnManager extends RegionManager {
     }
 
     @Override
-    public boolean specialAction() {
+    public boolean specialAction(int threadID) {
         boolean change = false;
 
         /*
@@ -48,19 +48,19 @@ public class ColumnManager extends RegionManager {
          */
         for (int i = 0; i < 9; i++)
             if (candidates[i][0] >= 2 && candidates[i][1] == 0 && candidates[i][2] == 0)
-                change = specialElimination(firstBoxIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(firstBoxIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidates[i][1] >= 2 && candidates[i][0] == 0 && candidates[i][2] == 0)
-                change = specialElimination(secondBoxIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(secondBoxIndex, getEliminatedCandidates(i), threadID) || change;
 
             else if (candidates[i][2] >= 2 && candidates[i][0] == 0 && candidates[i][1] == 0)
-                change = specialElimination(thirdBoxIndex, getEliminatedCandidates(i)) || change;
+                change = specialElimination(thirdBoxIndex, getEliminatedCandidates(i), threadID) || change;
 
         return change;
     }
 
     @Override
-    public boolean specialElimination(int targetID, int eliminatedCandidates) {
+    public boolean specialElimination(int targetID, int eliminatedCandidates, int threadID) {
         //At the end this will be bigger than 0 if this eliminated attempt could really eliminate a candidate in a cell
         int change = 0;
 
@@ -82,13 +82,13 @@ public class ColumnManager extends RegionManager {
                 action.greenCells[i] = eliminatedCandidates;
 
         for (int i = 0; i < 6; i++) {
-            action.redCells[targetCells[i]] = boxCells[targetCells[i]].remove(eliminatedCandidates);
+            action.redCells[targetCells[i]] = boxCells[targetCells[i]].remove(eliminatedCandidates, threadID);
             change += action.redCells[targetCells[i]];
         }
 
         //If we could eliminate some candidates, then add this action to our action list.
         if (change > 0)
-            mySudoku.addToQueue(action);
+            mySudoku.addToQueue(action, threadID);
 
         return (change > 0);
     }

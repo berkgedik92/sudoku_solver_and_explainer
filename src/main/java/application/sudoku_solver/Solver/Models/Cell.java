@@ -1,5 +1,7 @@
 package application.sudoku_solver.Solver.Models;
 
+import application.sudoku_solver.Solver.SudokuHandler;
+
 public class Cell {
 
     public static final int allValues = 511;
@@ -9,16 +11,8 @@ public class Cell {
     public int data;
 
     public Cell (int index) {
-        synchronized (lock) {
-            this.index = index;
-            this.data = Cell.allValues;
-        }
-    }
-
-    public void reset() {
-        synchronized (lock) {
-            this.data = Cell.allValues;
-        }
+        this.index = index;
+        this.data = Cell.allValues;
     }
 
     /*
@@ -37,46 +31,49 @@ public class Cell {
     }
 
     public void assign(char number) {
-        synchronized (lock) {
-            int temp = 1;
-            data = temp << (number - '1');
-        }
+        int temp = 1;
+        data = temp << (number - '1');
     }
 
     public void assign(int data) {
-        synchronized (lock) {
-            this.data = data;
-        }
+        this.data = data;
     }
 
     /*
         Removes "value" from data, returns what
         has been removed
      */
-    public int remove(int value) {
-        return intersect(~value);
+    public int remove(int value, int threadID) {
+        return intersect(~value, threadID);
     }
 
     /*
         Data will be equal to the intersection of data and value
         It returns (data - intersection = what have been eliminated)
      */
-    public int intersect(int value) {
+    public int intersect(int value, int threadID) {
         int eliminated;
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\tattempted to take Cell" + index + "Lock");
+
         synchronized (lock) {
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\ttook Cell" + index + "Lock");
+
             int oldData = data;
             data = data & value;
             eliminated = oldData & (~data);
         }
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\treleased Cell" + index + "Lock");
+
         return eliminated;
     }
 
     public int getCandidates() {
-        int temp;
-        synchronized (lock) {
-            temp = data;
-        }
-        return temp;
+        return data;
     }
 
     public int getColumnIndex() {

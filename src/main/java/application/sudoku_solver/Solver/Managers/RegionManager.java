@@ -45,14 +45,14 @@ public abstract class RegionManager {
     /*
         When a cell changes, this function will be triggered...
      */
-    public void SudokuCellChanged (int cell, int data) {
+    public void SudokuCellChanged(int cell, int data) {
         cellValues[cell] = data;
     }
 
     /*
         For more information : http://www.sudokuwiki.org/naked_candidates
      */
-    public boolean NakedElimination () {
+    public boolean NakedElimination(int threadID) {
         boolean change = false;
         int[] candidates = new int[9];
         int[] amounts = new int[9];
@@ -81,7 +81,7 @@ public abstract class RegionManager {
 
                     for (int cell = 0; cell < 9; cell++) {
                         if (cellValues[cell] != candidates[i]) {
-                            action.redCells[cell] = cells[cell].remove(candidates[i]);
+                            action.redCells[cell] = cells[cell].remove(candidates[i], threadID);
                             changeAmount += action.redCells[cell];
                         }
                         else {
@@ -89,7 +89,7 @@ public abstract class RegionManager {
                         }
                     }
                     if (changeAmount > 0) {
-                        mySudoku.addToQueue(action);
+                        mySudoku.addToQueue(action, threadID);
                         change = true;
                     }
                 }
@@ -101,7 +101,7 @@ public abstract class RegionManager {
     /*
         For more information : http://www.sudokuwiki.org/Hidden_Candidates
     */
-    public boolean HiddenElimination () {
+    public boolean HiddenElimination (int threadID) {
         for (int allSubset : allSubsets) {
             Action action = new Action(regionID, regionID, EliminationEvent.HIDDEN_ELIMINATION, allSubset);
             boolean[] cellsToEliminate = new boolean[9];
@@ -125,17 +125,17 @@ public abstract class RegionManager {
                 int changeData = 0;
                 for (int j = 0; j < 9; j++) {
                     if (cellsToEliminate[j]) {
-                        action.redCells[j] = cells[j].intersect(allSubset);
+                        action.redCells[j] = cells[j].intersect(allSubset, threadID);
                         changeData += action.redCells[j];
                     }
                 }
                 if (changeData > 0) {
-                    mySudoku.addToQueue(action);
+                    mySudoku.addToQueue(action, threadID);
                     return true;
                 }
             } else if (candidateLength > candidateCount) {
                 Action contradiction = new Action(regionID, 0, EliminationEvent.CONTRADICTION, allSubset);
-                mySudoku.addToQueue(contradiction);
+                mySudoku.addToQueue(contradiction, threadID);
                 mySudoku.signalContradiction();
             }
         }
@@ -161,12 +161,12 @@ public abstract class RegionManager {
         Pointing pair or getBoxIndex reduction. For more information:
         http://www.sudokuwiki.org/intersection_removal
     */
-    public abstract boolean specialAction();
+    public abstract boolean specialAction(int threadID);
 
     /*
         When a RegionManager object (with ID = sourceID) will find a candidate to eliminate in its specialAction
         function, it will signal it by calling this function. Then another RegionManager object (with ID = targetID)
         will perform the necessary checks.
      */
-    public abstract boolean specialElimination(int targetID, int eliminatedCandidates);
+    public abstract boolean specialElimination(int targetID, int eliminatedCandidates, int threadID);
 }

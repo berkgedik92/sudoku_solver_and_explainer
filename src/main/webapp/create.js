@@ -12,9 +12,15 @@ function getCellInput(index) {
     return $("#cell_input" + index);
 }
 
-function getCandidateCell(index, candidate) {
+function getCandidateCell(cellID, candidate) {
     candidate = candidate.toString();
-    return document.getElementById("k" + index + "c" + candidate);
+    return document.getElementById("k" + cellID + "c" + candidate);
+}
+
+function createCandidateCell(cellID, candidate) {
+    let cell = $("<div/>", {class: "num", id: "k" + cellID + "c" + candidate});
+    cell.html(candidate + 1);
+    return cell;
 }
 
 /*Shadow Functions*/
@@ -41,9 +47,8 @@ function resetColors() {
     for (let i = 0; i < redCells.length; i++)
         eliminate(redCells[i][0], redCells[i][1]);
         
-    aquas = new Array();
-    whites = new Array();
     redCells = new Array();
+    greenCells = new Array();
 }
 
 function getClassNameForCandidateCell(candidateAmount) {
@@ -96,7 +101,7 @@ function assignValue(cellID, value) {
 }
 
 function makeGreen(cellID, candidates) {
-    candidates = ToString(candidates);
+    candidates = extractCandidates(candidates);
     for (let i = 0; i < candidates.length; i++) {
         greenCells.push([cellID, candidates[i] - 1]);
         getCandidateCell(cellID, candidates[i] - 1).style.background = "green";
@@ -104,7 +109,7 @@ function makeGreen(cellID, candidates) {
 }
 
 function makeRed(cellID, candidates) {
-    candidates = ToString(candidates);
+    candidates = extractCandidates(candidates);
     for (let i = 0; i < candidates.length; i++) {
         redCells.push([cellID,candidates[i] - 1]);
         getCandidateCell(cellID, candidates[i] - 1).style.background = "red";
@@ -142,12 +147,11 @@ function read() {
     lightUpCells();
 
     // Read initial values of cells and display them on the screen
-    for (let cell = 0; cell < 81; cell++) 
-        if (allLines.initialPuzzle[cell] != 'x') {
-            assignValue(cell, allLines.initialPuzzle[cell]);
-            let numID = "k" + cell + "c" + (allLines.initialPuzzle[cell] - 1);
-            document.getElementById(numID).style.background = "white"; 
-            isWhite[cell] = true;
+    for (let cellID = 0; cellID < 81; cellID++)
+        if (allLines.initialPuzzle[cellID] != 'x') {
+            assignValue(cellID, allLines.initialPuzzle[cellID]);
+            getCandidateCell(cellID, allLines.initialPuzzle[cellID] - 1).style.background = "white";
+            isWhite[cellID] = true;
         }
 
     lineCursor = 0;
@@ -199,29 +203,29 @@ function reset() {
         getCellInput(a).val("");
 }
 
+// Create the sudoku table
 for (let id = 0; id < 81; id++) {
 	let row = Math.floor(id / 9);
 	let col = id % 9;
 	let box = (Math.floor(row / 3) * 3) + Math.floor(col / 3);
-	let cl = (box % 2 === 0) ? "dark_cell" : "light_cell";
+	let cellClass = (box % 2 === 0) ? "dark_cell" : "light_cell";
 
     //test
-    let c = $("<div/>", {class: cl, id: "k" + id}).appendTo("#container");
+    let cell = $("<div/>", {class: cellClass, id: "k" + id}).appendTo("#container");
 
     let shadow = $("<div/>", {class: "shadow", id: "k" + id + "s"});
     shadow.css("display", "none");
-    c.append(shadow);
+    cell.append(shadow);
     
-    let d = $("<input/>", {class: "cell_input", id: "cell_input" + id, maxlength: "1", type: "text"});
-    c.append(d);
+    let cellInput = $("<input/>", {class: "cell_input", id: "cell_input" + id, maxlength: "1", type: "text"});
+    cell.append(cellInput);
 }
 
 for (let i = 0; i < 81; i++) {
     let cell = $("#k" + i);
     for (let j = 0; j < 9; j++) {
-        let numcell = $("<div/>", {class: "num", id: "k" + i + "c" + j});
-        numcell.html(j + 1);
-        cell.append(numcell);
+        let candidateCell = createCandidateCell(i, j);
+        cell.append(candidateCell);
     }
 }
 
@@ -277,6 +281,68 @@ function enterHardPuzzle() {
     $("#cell_input74").val("3");
 }
 
+function enterVeryHardPuzzle() {
+
+    /*
+        xxx3xxx2x
+        xx7xx58xx
+        x8x4xxxxx
+        7x3xxxxx6
+        x5xx2xx8x
+        2xxxxx7x1
+        xxxxx9x1x
+        xx47xx3xx
+        x2xxx8xxx
+    */
+    $("#cell_input3").val("3");
+    $("#cell_input7").val("2");
+    $("#cell_input11").val("7");
+    $("#cell_input14").val("5");
+    $("#cell_input15").val("8");
+    $("#cell_input19").val("8");
+    $("#cell_input21").val("4");
+    $("#cell_input27").val("7");
+    $("#cell_input29").val("3");
+    $("#cell_input35").val("6");
+    $("#cell_input37").val("5");
+    $("#cell_input40").val("2");
+    $("#cell_input43").val("8");
+    $("#cell_input45").val("2");
+    $("#cell_input51").val("7");
+    $("#cell_input53").val("1");
+    $("#cell_input59").val("9");
+    $("#cell_input61").val("1");
+    $("#cell_input65").val("4");
+    $("#cell_input66").val("7");
+    $("#cell_input69").val("3");
+    $("#cell_input37").val("5");
+    $("#cell_input73").val("2");
+    $("#cell_input77").val("8");
+}
+
+function enterHardestSudoku() {
+    $("#cell_input0").val("8");
+    $("#cell_input11").val("3");
+    $("#cell_input12").val("6");
+    $("#cell_input19").val("7");
+    $("#cell_input22").val("9");
+    $("#cell_input24").val("2");
+    $("#cell_input28").val("5");
+    $("#cell_input32").val("7");
+    $("#cell_input40").val("4");
+    $("#cell_input41").val("5");
+    $("#cell_input42").val("7");
+    $("#cell_input48").val("1");
+    $("#cell_input52").val("3");
+    $("#cell_input56").val("1");
+    $("#cell_input61").val("6");
+    $("#cell_input62").val("8");
+    $("#cell_input65").val("8");
+    $("#cell_input66").val("5");
+    $("#cell_input70").val("1");
+    $("#cell_input73").val("9");
+    $("#cell_input78").val("4");
+}
 
 function Next() {
 
@@ -293,30 +359,30 @@ function Next() {
 
     lightDownCells();
     if (assigned != null) {
-        assignValue (assigned[0],assigned[1]);
+        assignValue(assigned[0], assigned[1]);
         assigned = null;
     }
 
     if (action.event === "NAKED_ELIMINATION")
-        NakedElimination(action);
+        nakedElimination(action);
     else if (action.event === "HIDDEN_ELIMINATION")
-        HiddenElimination(action);
+        hiddenElimination(action);
     else if (action.event === "BOX_REDUCTION" || action.event === "POINTING_PAIR")
-        BoxReduction(action);
+        boxReduction(action);
     else if (action.event === "TRYING")
-        Trying(action);
+        guess(action);
     else if (action.event === "ROLLBACK")
-        Rollback(action);
+        rollback(action);
     else if (action.event === "CONTRADICTION")
-        Contradiction(action);
+        contradictionDetected(action);
 }
 
-function Contradiction(action) {
-    document.getElementById("explain").innerHTML += "Contradiction : " + IDtoName(action.sourceID) + " there is no cell which can have " + CandidatesParser(action.relatedCandidates) + "as candidate, so the latest guess led us to a contradiction. We will restore the latest state free of contradictions.";
+function contradictionDetected(action) {
+    document.getElementById("explain").innerHTML += "Contradiction Detected : " + getRegionName(action.sourceID) + " there is no cell which can have " + parseRelatedCandidates(action.relatedCandidates) + " as candidate, so the latest guess led us to a contradiction. We will restore the latest state free of contradictions.";
     changeRegionShadow(action.sourceID,false);
 }
 
-function HiddenElimination(action) {
+function hiddenElimination(action) {
 
     let tempRed = JSON.parse(JSON.stringify(action.redCells));
     action.redCells = "";
@@ -325,23 +391,21 @@ function HiddenElimination(action) {
         if (tempRed[i] > 0)
             action.redCells += i + ":" + tempRed[i] + "-";
     
-    document.getElementById("explain").innerHTML += IDtoName(action.sourceID) + " value(s) " + CandidatesParser(action.relatedCandidates) + " can be taken only by ";
+    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " value(s) " + parseRelatedCandidates(action.relatedCandidates) + " can be taken only by the cell(s)";
     changeRegionShadow(action.sourceID,false);
-    action.redCells = action.redCells.substr(0,action.redCells.length-1).split("-");
-    let cells = (action.redCells.length>1) ? "the cells" : "the cell";
-    document.getElementById("explain").innerHTML += " " + cells + " ";
+    action.redCells = action.redCells.substr(0,action.redCells.length - 1).split("-");
 
     for (let i = 0; i < action.redCells.length; i++) {
         action.redCells[i] = action.redCells[i].split(":");
         let cellID = regions[action.sourceID][action.redCells[i][0]];
-        document.getElementById("explain").innerHTML += "" + (parseInt(action.redCells[i][0]) + 1) + ". ";
+        document.getElementById("explain").innerHTML += (parseInt(action.redCells[i][0]) + 1) + ". ";
         makeGreen(cellID,action.relatedCandidates);
         makeRed(cellID,action.redCells[i][1]);
     }
-    document.getElementById("explain").innerHTML += ". For this reason, " + cells + " must only have " + CandidatesParser(action.relatedCandidates) + ".";
+    document.getElementById("explain").innerHTML += ". For this reason, the cell(s) must only have " + parseRelatedCandidates(action.relatedCandidates) + ".";
 }
 
-function BoxReduction(action) {
+function boxReduction(action) {
 
     let tempGreen = JSON.parse(JSON.stringify(action.greenCells));
     let tempRed = JSON.parse(JSON.stringify(action.redCells));
@@ -360,7 +424,7 @@ function BoxReduction(action) {
     action.greenCells = action.greenCells.trim();
     action.redCells = action.redCells.trim();
 
-    document.getElementById("explain").innerHTML += IDtoName(action.sourceID) + " all cell(s) that can have " + CandidatesParser(action.relatedCandidates) + " reside(s) at " + IDtoName(action.targetID) + ". For this reason, the cell(s) which are " + IDtoName(action.targetID) + " and not " + IDtoName(action.sourceID) + " must not have " + CandidatesParser(action.relatedCandidates) + ".";
+    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " all cell(s) that can have " + parseRelatedCandidates(action.relatedCandidates) + " reside(s) at " + getRegionName(action.targetID) + ". For this reason, the cell(s) which are " + getRegionName(action.targetID) + " and not " + getRegionName(action.sourceID) + " must not have " + parseRelatedCandidates(action.relatedCandidates) + ".";
     changeRegionShadow(action.sourceID,false);
     changeRegionShadow(action.targetID, false);
     action.redCells = action.redCells.substr(0,action.redCells.length-1).split("-");
@@ -376,22 +440,22 @@ function BoxReduction(action) {
     }
 }
 
-function Rollback(action) {
-    document.getElementById("explain").innerHTML += "We restored to the latest state without contradiction (before our guess). Thanks to the fact that this guess led us to a contradiction, the cell" + IDtoName(action.sourceID) + " cannot have " + action.relatedCandidates + " as value.";
+function rollback(action) {
+    document.getElementById("explain").innerHTML += "We restored to the latest state without contradiction (before our guess). Thanks to the fact that this guess led us to a contradiction, the cell " + action.sourceID + " cannot have " + extractCandidates(action.relatedCandidates) + " as value.";
     lightUpCells();
     for (let i = 0; i < 81; i++)
-        assignValue(i,action.values[i]);
-    makeRed(action.sourceID,action.relatedCandidates);
+        assignValue(i, extractCandidates(action.values[i]));
+    makeRed(action.sourceID, action.relatedCandidates);
 }
 
-function Trying(action) {
-    document.getElementById("explain").innerHTML += "We cannot make any further elimination by using logical inference. We have to guess. At cell " + IDtoName(action.sourceID) + " we will try the value " + action.relatedCandidates + " . If we will get a contradiction after that, we will restore to this state.";
+function guess(action) {
+    document.getElementById("explain").innerHTML += "We cannot make any further elimination by using logical inference. We have to guess. At cell " + (action.sourceID + 1) + " we will try the value " + extractCandidates(action.relatedCandidates) + ". If we will get a contradiction after that, we will restore to this state.";
     lightUpCells();
-    makeGreen(IDtoName(action.sourceID),action.relatedCandidates);
-    assigned = [IDtoName(action.sourceID),action.relatedCandidates];
+    makeGreen(action.sourceID, action.relatedCandidates);
+    assigned = [action.sourceID, extractCandidates(action.relatedCandidates)];
 }
 
-function NakedElimination(action) {
+function nakedElimination(action) {
 
     let tempGreen = JSON.parse(JSON.stringify(action.greenCells));
     let tempRed = JSON.parse(JSON.stringify(action.redCells));
@@ -401,7 +465,7 @@ function NakedElimination(action) {
 
     for (let i = 0; i < 9; i++)
         if (tempGreen[i] > 0)
-            action.greenCells += i + "";
+            action.greenCells += i.toString();
 
     for (let i = 0; i < 9; i++)
         if (tempRed[i] > 0)
@@ -410,16 +474,17 @@ function NakedElimination(action) {
     action.greenCells = action.greenCells.trim();
     action.redCells = action.redCells.trim();
 
-    document.getElementById("explain").innerHTML += IDtoName(action.sourceID);
-    changeRegionShadow(action.sourceID,false);
-    let cells = (action.greenCells.length > 1) ? "cells " : "cell ";
+    document.getElementById("explain").innerHTML += getRegionName(action.sourceID);
+
+    changeRegionShadow(action.sourceID, false);
+    let cells = (action.greenCells.length > 1) ? " cells " : " cell ";
     document.getElementById("explain").innerHTML += cells;
     for (let i = 0; i < action.greenCells.length; i++) {
         let cellID = regions[action.sourceID][action.greenCells[i]];
-        document.getElementById("explain").innerHTML += "" + (parseInt(action.greenCells[i][0]) + 1) + " "
+        document.getElementById("explain").innerHTML += (parseInt(action.greenCells[i][0]) + 1) + " "
         makeGreen(cellID, action.relatedCandidates);
     }
-    document.getElementById("explain").innerHTML += " can only have " + CandidatesParser(action.relatedCandidates) + ". For this reason, the other cell(s) in this region must not have " + CandidatesParser(action.relatedCandidates) + ".";
+    document.getElementById("explain").innerHTML += " can only have " + parseRelatedCandidates(action.relatedCandidates) + ". For this reason, the other cell(s) in this region must not have " + parseRelatedCandidates(action.relatedCandidates) + ".";
     
     action.redCells = action.redCells.substr(0, action.redCells.length - 1).split("-");
     for (let i = 0; i < action.redCells.length; i++)
@@ -430,42 +495,41 @@ function NakedElimination(action) {
     }
 }
 
-function IDtoName (regionID) {
+function getRegionName(regionID) {
     let result = "At ";
     regionID = parseInt(regionID);
+
     if (regionID < 9) {
-        result += "Row ";
+        result += "row ";
         regionID += 1;
     }
     else if (regionID < 18) {
-        result += "Column ";
+        result += "column ";
         regionID -= 8;
     }
     else {
-        result += "Box "; 
+        result += "box ";
         regionID -= 17;
     }
-    result += regionID + "";
+    
+    result += regionID.toString();
     return result;
 }
 
-function CandidatesParser(relatedCandidates) {
+function parseRelatedCandidates(relatedCandidates) {
 
-    let result = "";
-    let mask = 1;
-    for (let i = 0; i < 9; i++, mask = mask << 1)
-        if ((mask & relatedCandidates) >= 1)
-            result += (i + 1) + "";
-    relatedCandidates = result;
+    relatedCandidates = extractCandidates(relatedCandidates);
     result = "";
+
     for (let i = 0; i < relatedCandidates.length - 1; i++)
         result += relatedCandidates[i] + " ";
+
     result += relatedCandidates[relatedCandidates.length - 1];
     result = ((relatedCandidates.length > 1) ? " the values " : " the value ") + result;
     return result;
 }
 
-function ToString(data) {
+function extractCandidates(data) {
     let result = "";
     let mask = 1;
     for (let i = 0; i < 9; i++, mask = mask << 1)
@@ -474,4 +538,4 @@ function ToString(data) {
     return result;
 }
 
-enterHardPuzzle();
+enterHardestSudoku();

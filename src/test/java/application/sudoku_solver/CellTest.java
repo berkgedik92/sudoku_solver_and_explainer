@@ -71,17 +71,6 @@ public class CellTest {
     }
 
     @Test
-    public void ResetTest() {
-        Cell cell = new Cell(80);
-        //Data for 7 and 8
-        int data = 64 + 128;
-        cell.assign(data);
-        cell.reset();
-        String s = cell.toString();
-        assertEquals(s, "123456789");
-    }
-
-    @Test
     public void intersectionTest() {
         Cell cell1 = new Cell(80);
         Cell cell2 = new Cell(80);
@@ -89,7 +78,7 @@ public class CellTest {
         int data2 = 1 + 32 + 64 + 256;
         cell1.assign(data1);
         cell2.assign(data2);
-        int eliminated = cell1.intersect(getInt(cell2.toString()));
+        int eliminated = cell1.intersect(getInt(cell2.toString()), 0);
         assertEquals(2, CellOperations.getCandidateAmount(cell1.data));
         assertEquals(eliminated, 8 + 128);
     }
@@ -107,7 +96,7 @@ public class CellTest {
         cell1.assign(data1);
         cell2.assign(data2);
 
-        int r = cell1.remove(cell2.getCandidates());
+        int r = cell1.remove(cell2.getCandidates(), 0);
         assertEquals(cell1.toString(), "145");
         assertEquals(r, 2 + 4);
     }

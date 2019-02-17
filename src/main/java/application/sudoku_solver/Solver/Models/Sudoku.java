@@ -7,6 +7,7 @@ import application.sudoku_solver.Solver.Managers.RowManager;
 import application.sudoku_solver.Solver.Reporter.Action;
 import application.sudoku_solver.Solver.Reporter.EliminationEvent;
 import application.sudoku_solver.Solver.Reporter.Report;
+import application.sudoku_solver.Solver.SudokuHandler;
 import application.sudoku_solver.Solver.SudokuSolver;
 
 import java.util.*;
@@ -16,10 +17,9 @@ public class Sudoku {
     private final Stack<SudokuBackup> attempts;
     private boolean foundContradiction;
     private final Queue<Action> actions;
-    private final Object myMutex = new Object();
-    private final Object queueMutex = new Object();
+    private final Object sudokuMainLock = new Object();
     private final int threadAmount;
-    private int workingThread;
+    private final boolean[] isThreadWorking;
     private final Cell[] cells;
     private final RegionManager[] regions;
     private final List<SudokuSolver> solvers;
@@ -35,7 +35,11 @@ public class Sudoku {
             cells[i] = new Cell(i);
 
         this.threadAmount = threadAmount;
-        workingThread = threadAmount;
+
+        isThreadWorking = new boolean[threadAmount];
+        for (int i = 0; i < threadAmount; i++)
+            isThreadWorking[i] = true;
+
         foundContradiction = false;
 
         for (int i = 0; i < threadAmount; i++) {
@@ -60,6 +64,16 @@ public class Sudoku {
 
         for (int j = 0; j < 27; j++)
             solvers.get(j % threadAmount).assignData(regions[j]);
+    }
+
+    public int activeThreadAmount() {
+        int result = 0;
+
+        for (int i = 0; i < threadAmount; i++)
+            if (isThreadWorking[i])
+                result++;
+
+        return result;
     }
 
     public void setNumberForCell(int row, int col, int number) {
@@ -103,33 +117,87 @@ public class Sudoku {
 
         For any case, if all threads are stopped and this is the last thread, it will not be stopped.
      */
-    public boolean threadStopAttempt() {
+
+    public void resumeAllThreads(int threadID) {
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\tattempted to take SudokuMainMutex (for resumeAllThreads)");
+
+        synchronized (sudokuMainLock) {
+
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\ttook SudokuMainMutex (for resumeAllThreads)");
+
+            for (int i = 0; i < threadAmount; i++)
+                if (!isThreadWorking[i]) {
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tSending wake-up signal to thread " + i);
+
+                    isThreadWorking[i] = true;
+                    solvers.get(i).signalToWork(threadID);
+                }
+        }
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\treleased SudokuMainMutex (for resumeAllThreads)");
+    }
+
+    public boolean threadStopAttempt(int threadID) {
 
         // Assume that it is not the last thread (if it is the last thread we will not stop it)
         boolean shouldThreadBeStopped = true;
 
-        synchronized (myMutex) {
+        if (SudokuHandler.LOG_THREAD_ACTIONS)
+            System.out.println("ACTION\tThread " + threadID + "\tAttempts to sleep");
 
-            workingThread--;
-            if (workingThread == 0) {
-                System.out.println("All threads except one are stopped. Now we will check how to proceed...");
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\tattempted to take SudokuMainMutex (for threadStopAttempt)");
+
+        synchronized (sudokuMainLock) {
+
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + "\ttook SudokuMainMutex (for threadStopAttempt)");
+
+            isThreadWorking[threadID] = false;
+            int activeThreads = activeThreadAmount();
+            //System.out.println("Thread " + threadID + " stop attempt (Thread amount = " + activeThreads + ")");
+            if (activeThreads == 0) {
+
+                if (SudokuHandler.LOG_THREAD_ACTIONS)
+                    System.out.println("ACTION\tThread " + threadID + "\tWill not sleep as it is the last working thread now");
+
+                isThreadWorking[threadID] = true;
 
                 /*
                     Case (1) Contradiction: If there is a contradiction, check if there is any non-contradicting state
                     in the stack. If so restore the state and wake up all solvers. Otherwise we conclude that the puzzle
                     is not solvable. In this case, just kill the threads
-                 */
+                */
                 if (foundContradiction) {
+
+                    if (SudokuHandler.LOG_THREAD_ACTIONS)
+                        System.out.println("ACTION\tThread " + threadID + "\tHandling the contradiction");
 
                     // If there is no non-contradicting state in the stack, kill the threads...
                     if (attempts.empty()) {
+
+                        if (SudokuHandler.LOG_THREAD_ACTIONS)
+                            System.out.println("ACTION\tThread " + threadID + "\tNo state to restore, could not solve the puzzle, will send kill signal to all threads");
+
                         for (int i = 0; i < threadAmount; i++)
-                            solvers.get(i).killThread();
+                            solvers.get(i).setKillFlag();
+
+                        resumeAllThreads(threadID);
                     }
 
                     // If there is a state, return to that state and wake up all threads...
                     else {
                         // Restore
+
+                        if (SudokuHandler.LOG_THREAD_ACTIONS)
+                            System.out.println("ACTION\tThread " + threadID + "\tRestoring to the latest non-contradicting state on the stack");
+
                         foundContradiction = false;
                         Action action = new Action(attempts.peek().changedCell, 0, EliminationEvent.ROLLBACK, attempts.peek().pickedValue);
                         for (int i = 0; i < 81; i++) {
@@ -143,14 +211,12 @@ public class Sudoku {
                             candidate so we will remove this value from the candidates list of the cell
                         */
 
-                        cells[attempts.peek().changedCell].remove(attempts.peek().pickedValue);
-                        addToQueue(action);
+                        cells[attempts.peek().changedCell].remove(attempts.peek().pickedValue, threadID);
+                        addToQueue(action, threadID);
                         attempts.pop();
 
                         // Signal all threads to run again
-                        workingThread = threadAmount;
-                        for (int i = 0; i < threadAmount; i++)
-                            solvers.get(i).signalToWork();
+                        resumeAllThreads(threadID);
                     }
                 }
                 /*
@@ -169,13 +235,16 @@ public class Sudoku {
 
                     // Case (1) : The puzzle is solved...
                     if (isNotFinished == -1) {
-                        System.out.println("Puzzle is solved!");
+                        System.out.println("Thread " + threadID + " : Puzzle is solved!");
                         for (int i = 0; i < threadAmount; i++)
-                            solvers.get(i).killThread();
+                            solvers.get(i).setKillFlag();
+
+                        resumeAllThreads(threadID);
+
                     }
                     // Case (2) : We will make a guess
                     else {
-                        System.out.println("We have to make a guess!");
+                        //System.out.println("Thread " + threadID + ": We have to make a guess!");
 
                         SudokuBackup backup = new SudokuBackup();
                         for (int i = 0; i < 81; i++)
@@ -184,37 +253,39 @@ public class Sudoku {
                         backup.pickedValue = cells[isNotFinished].pickCandidate();
                         backup.changedCell = isNotFinished;
                         Action action = new Action(isNotFinished, 0, EliminationEvent.TRYING, backup.pickedValue);
-                        addToQueue(action);
+                        addToQueue(action, threadID);
                         attempts.push(backup);
 
                         // Run the threads again
-                        workingThread = threadAmount;
-                        for (int i = 0; i < threadAmount; i++) {
-                            solvers.get(i).signalToWork();
-                        }
+                        resumeAllThreads(threadID);
                     }
                 }
+
                 shouldThreadBeStopped = false;
             }
         }
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + "\treleased SudokuMainMutex (for threadStopAttempt)");
+
         return shouldThreadBeStopped;
     }
 
-    public void continueWork() {
-        synchronized (myMutex) {
-            if (!foundContradiction) {
-                workingThread = threadAmount;
-                for (int i = 0; i < threadAmount; i++) {
-                    solvers.get(i).signalToWork();
-                }
-            }
-        }
-    }
+    public void addToQueue(Action action, int threadID) {
 
-    public void addToQueue(Action action) {
-        synchronized (queueMutex) {
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + " attempted to take queueLock" + threadID);
+
+        synchronized(actions) {
+
+            if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+                System.out.println("LOCK\tThread " + threadID + " took queueLock" + threadID);
+
             actions.add(action);
         }
+
+        if (SudokuHandler.LOG_LOCK_ACQUIREMENTS)
+            System.out.println("LOCK\tThread " + threadID + " released queueLock" + threadID);
     }
 
     public Report getReport() {
@@ -227,11 +298,16 @@ public class Sudoku {
 
         while (actions.size() != 0) {
 
-            /*if (contradiction) {
-                while (actions.peek().event != 4)
+            if (contradiction) {
+                while (actions.size() > 0 && actions.peek().getEvent() != EliminationEvent.ROLLBACK)
                     actions.remove();
                 contradiction = false;
-            }*/
+                continue;
+            }
+
+            if (actions.peek().getEvent() == EliminationEvent.CONTRADICTION) {
+                contradiction = true;
+            }
 
             Action action = actions.peek();
             actions.remove();
