@@ -391,17 +391,18 @@ function hiddenElimination(action) {
         if (tempRed[i] > 0)
             action.redCells += i + ":" + tempRed[i] + "-";
     
-    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " value(s) " + parseRelatedCandidates(action.relatedCandidates) + " can be taken only by the cell(s)";
+    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " " + parseRelatedCandidates(action.relatedCandidates) + " can be taken only by the cell(s) ";
     changeRegionShadow(action.sourceID,false);
     action.redCells = action.redCells.substr(0,action.redCells.length - 1).split("-");
 
     for (let i = 0; i < action.redCells.length; i++) {
         action.redCells[i] = action.redCells[i].split(":");
         let cellID = regions[action.sourceID][action.redCells[i][0]];
-        document.getElementById("explain").innerHTML += (parseInt(action.redCells[i][0]) + 1) + ". ";
+        document.getElementById("explain").innerHTML += (parseInt(action.redCells[i][0]) + 1) + " ";
         makeGreen(cellID,action.relatedCandidates);
         makeRed(cellID,action.redCells[i][1]);
     }
+    document.getElementById("explain").innerHTML = document.getElementById("explain").innerHTML.trim();
     document.getElementById("explain").innerHTML += ". For this reason, the cell(s) must only have " + parseRelatedCandidates(action.relatedCandidates) + ".";
 }
 
@@ -424,7 +425,14 @@ function boxReduction(action) {
     action.greenCells = action.greenCells.trim();
     action.redCells = action.redCells.trim();
 
-    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " all cell(s) that can have " + parseRelatedCandidates(action.relatedCandidates) + " reside(s) at " + getRegionName(action.targetID) + ". For this reason, the cell(s) which are " + getRegionName(action.targetID) + " and not " + getRegionName(action.sourceID) + " must not have " + parseRelatedCandidates(action.relatedCandidates) + ".";
+    document.getElementById("explain").innerHTML += getRegionName(action.sourceID) + " all cell(s) that can have " +
+                                                parseRelatedCandidates(action.relatedCandidates) + " reside(s) " +
+                                                getRegionName(action.targetID).toLowerCase() +
+                                                ". For this reason, the cell(s) which are " +
+                                                getRegionName(action.targetID).toLowerCase() + " and not " +
+                                                getRegionName(action.sourceID).toLowerCase() + " must not have " +
+                                                parseRelatedCandidates(action.relatedCandidates) + ".";
+
     changeRegionShadow(action.sourceID,false);
     changeRegionShadow(action.targetID, false);
     action.redCells = action.redCells.substr(0,action.redCells.length-1).split("-");
@@ -441,7 +449,12 @@ function boxReduction(action) {
 }
 
 function rollback(action) {
-    document.getElementById("explain").innerHTML += "We restored to the latest state without contradiction (before our guess). Thanks to the fact that this guess led us to a contradiction, the cell " + action.sourceID + " cannot have " + extractCandidates(action.relatedCandidates) + " as value.";
+    document.getElementById("explain").innerHTML += "We restored to the latest state without contradiction. " +
+                                                    "Thanks to the fact that the guess led us to a contradiction, " +
+                                                    "the cell we conclude that" + action.sourceID +
+                                                    " cannot have " + extractCandidates(action.relatedCandidates) +
+                                                    " as a candidate.";
+
     lightUpCells();
     for (let i = 0; i < 81; i++)
         assignValue(i, extractCandidates(action.values[i]));
@@ -449,7 +462,11 @@ function rollback(action) {
 }
 
 function guess(action) {
-    document.getElementById("explain").innerHTML += "We cannot make any further elimination by using logical inference. We have to guess. At cell " + (action.sourceID + 1) + " we will try the value " + extractCandidates(action.relatedCandidates) + ". If we will get a contradiction after that, we will restore to this state.";
+    document.getElementById("explain").innerHTML += "We cannot make any further elimination by using logical inference." +
+                                                    "For this reason we have to make a guess. At cell " + (action.sourceID + 1) +
+                                                    " we will try the value " + extractCandidates(action.relatedCandidates) +
+                                                    ". If we will get a contradiction after that guess, we will restore to this state.";
+
     lightUpCells();
     makeGreen(action.sourceID, action.relatedCandidates);
     assigned = [action.sourceID, extractCandidates(action.relatedCandidates)];
